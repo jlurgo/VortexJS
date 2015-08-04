@@ -62,7 +62,12 @@ FiltroXEjemplo.prototype = {
     equals: function(otro_filtro){
         if(!(otro_filtro instanceof FiltroXEjemplo)) return false;
         return _.isEqual(this.ejemplo, otro_filtro.ejemplo);
-    }
+    },
+	contains: function(otro_filtro){
+		if((otro_filtro instanceof FiltroXEjemplo)) return _.isMatch(otro_filtro.ejemplo, this.ejemplo);
+		if((otro_filtro instanceof FiltroFalse)) return true;
+		return false;
+	}
 };
 if(typeof(require) != "undefined"){ exports.FiltroXEjemplo = FiltroXEjemplo;}
 
@@ -88,7 +93,15 @@ FiltroXClaveValor.prototype = {
     equals: function(otro_filtro){
         if(!(otro_filtro instanceof FiltroXClaveValor)) return false;
         return this._clave == otro_filtro._clave && this._valor == otro_filtro._valor;
-    }
+    },
+	contains: function(otro_filtro){
+		if((otro_filtro instanceof FiltroXClaveValor)) return this._clave == otro_filtro._clave && this._valor == otro_filtro._valor;
+		if((otro_filtro instanceof FiltroXEjemplo)) {
+			if(otro_filtro.ejemplo[this._clave] == this._valor) return true;
+		 }
+		if((otro_filtro instanceof FiltroFalse)) return true;
+		return false;
+	}
 };
 if(typeof(require) != "undefined"){ exports.FiltroXClaveValor = FiltroXClaveValor;}
 
@@ -165,7 +178,15 @@ FiltroAND.prototype = {
             if(!otro_filtro.incluyeElFiltro(this.filtros[i])) return false;
 		}
         return true;
-    }
+    },
+	contains: function(otro_filtro){
+		if((otro_filtro instanceof FiltroXClaveValor)) return this._clave == otro_filtro._clave && this._valor == otro_filtro._valor;
+		if((otro_filtro instanceof FiltroXEjemplo)) {
+			if(otro_filtro.ejemplo[this._clave] == this._valor) return true;
+		 }
+		if((otro_filtro instanceof FiltroFalse)) return true;
+		return false;
+	}
 };
 if(typeof(require) != "undefined"){ exports.FiltroAND = FiltroAND;}
 
@@ -202,23 +223,30 @@ FiltroOR.prototype = {
     simplificar: function(){
         var filtros_acumulados_simplificados = [];
         for(var i=0; i<this.filtros.length; i++){
-			if(this.filtros[i] instanceof FiltroOR){
-                for(var j=0; j<this.filtros[i].filtros.length; j++){
-                    filtros_acumulados_simplificados.push(this.filtros[i].filtros[j].simplificar());
+			var filtro_simplificado = this.filtros[i].simplificar();
+			if(filtro_simplificado instanceof FiltroOR){
+                for(var j=0; j<filtro_simplificado.filtros.length; j++){
+                    filtros_acumulados_simplificados.push(filtro_simplificado.filtros[j]);
                 }
             }else{
-                filtros_acumulados_simplificados.push(this.filtros[i].simplificar());
+                filtros_acumulados_simplificados.push(filtro_simplificado);
             }
 		}
-        var filtros_sin_false = [];
-        for(var i=0; i<filtros_acumulados_simplificados.length; i++){
-            if(filtros_acumulados_simplificados[i] instanceof FiltroTrue) return filtros_acumulados_simplificados[i]; 
-            if(!(filtros_acumulados_simplificados[i] instanceof FiltroFalse)) filtros_sin_false.push(filtros_acumulados_simplificados[i]); 
-        }
-        var filtro_a_devolver = new FiltroOR(filtros_sin_false).eliminarDuplicados();
-        if(filtro_a_devolver.filtros.length==1) return filtros_sin_false[0];
-        if(filtro_a_devolver.filtros.length==0) return new FiltroFalse();
-        return filtro_a_devolver;
+		
+		var filtros_mas_generales = _.where(filtros_acumulados_simplificados);		
+		_.forEach(filtros_acumulados_simplificados, function(filtro1){
+			_.forEach(filtros_acumulados_simplificados, function(filtro2){
+				if(filtro1===filtro2) return;
+				if(!_.contains(filtros_mas_generales, filtro1)) return;
+				if(!_.contains(filtros_mas_generales, filtro2)) return;
+				if(!filtro1.contains(filtro2)) return;
+				filtros_mas_generales = _.reject(filtros_mas_generales, function(f){return f===filtro2;}); 
+			});
+		});			
+		
+        if(filtros_mas_generales.length==1) return filtros_mas_generales[0];
+        if(filtros_mas_generales.length==0) return new FiltroFalse();
+        return new FiltroOR(filtros_mas_generales);
     },
     eliminarDuplicados: function(){
         var filtro_sin_duplicados = new FiltroOR();
@@ -242,7 +270,10 @@ FiltroOR.prototype = {
             if(!otro_filtro.incluyeElFiltro(this.filtros[i])) return false;
 		}
         return true;
-    }
+    },
+	contains: function(otro_filtro){
+		return false;
+	}
 };
 if(typeof(require) != "undefined"){ exports.FiltroOR = FiltroOR;}
 
@@ -262,7 +293,12 @@ FiltroDesconocido.prototype = {
 	desSerializar : function(un_filtro_serializado){
         this.version_serializada = un_filtro_serializado;
 	},
-    simplificar: function(){return this;}
+    simplificar: function(){
+		return this;
+	},
+	contains: function(otro_filtro){
+		return false;
+	}
 };
 if(typeof(require) != "undefined"){ exports.FiltroDesconocido = FiltroDesconocido;}
 
@@ -284,7 +320,10 @@ FiltroTrue.prototype = {
     simplificar: function(){return this;},
     equals: function(otro_filtro){
         return (otro_filtro instanceof FiltroTrue);
-    }
+    },
+	contains: function(otro_filtro){
+		return true;
+	}
 };
 if(typeof(require) != "undefined"){ exports.FiltroTrue = FiltroTrue;}
 
@@ -306,6 +345,9 @@ FiltroFalse.prototype = {
     simplificar: function(){return this;},
     equals: function(otro_filtro){
         return (otro_filtro instanceof FiltroFalse);
-    }
+    },
+	contains: function(otro_filtro){
+		return (otro_filtro instanceof FiltroFalse);
+	}
 };
 if(typeof(require) != "undefined"){ exports.FiltroFalse = FiltroFalse;}

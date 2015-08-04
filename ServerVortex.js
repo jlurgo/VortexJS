@@ -7,6 +7,9 @@ var ServerVortex = function(app){
     var app = express();
     var server = http.createServer(app);
     
+	var Vx = Vortex.Vx;
+	
+	Vx.when({tipoDeMensaje:"Vortex.respuesta"}, function(){}); //atajo las respuestas para limpiar filtros
     var server_web_sockets = new Vortex.ServerWebSockets(server);
     var server_http = new Vortex.ServerHTTP(app);
     

@@ -20,25 +20,7 @@ var NodoRouter = function(){
     this.proximoIdPedido = 0;
 };
 
-NodoRouter.prototype.send = function (un_mensaje, callback) {
-    //envío a los vecinos que corresponda
-	_.forEach(this.datosVecinos, function (datos_de_un_vecino) {
-        if(datos_de_un_vecino.filtroRecibido.eval(un_mensaje)){ 
-            setTimeout(function(){              
-                datos_de_un_vecino.vecino.recibirMensaje(un_mensaje, this);  
-            },0);
-        }
-    });
-	
-	//ejecuto el callback que corresponda
-	_.forEach(this.pedidos, function (un_pedido) {
-        if(un_pedido.filtro.eval(un_mensaje)){ 
-            setTimeout(function(){      
-                un_pedido.callback(un_mensaje); 
-            },0);
-        }
-    });
-	
+NodoRouter.prototype.send = function (un_mensaje, callback) {		
 	if(callback){
 		un_mensaje.idRequest = this.randomString(32);
 		var pedido = this.when({
@@ -49,6 +31,24 @@ NodoRouter.prototype.send = function (un_mensaje, callback) {
             pedido.remove();
         });
 	}	
+	
+	//ejecuto el callback que corresponda
+	_.forEach(this.pedidos, function (un_pedido) {
+        if(un_pedido.filtro.eval(un_mensaje)){ 
+            setTimeout(function(){      
+                un_pedido.callback(un_mensaje); 
+            },0);
+        }
+    });
+	
+	//envío a los vecinos que corresponda
+	_.forEach(this.datosVecinos, function (datos_de_un_vecino) {
+        if(datos_de_un_vecino.filtroRecibido.eval(un_mensaje)){ 
+            setTimeout(function(){              
+                datos_de_un_vecino.vecino.recibirMensaje(un_mensaje, this);  
+            },0);
+        }
+    });
 };
 
 NodoRouter.prototype.when = function (filtro, callback) {
@@ -88,7 +88,7 @@ NodoRouter.prototype.recibirMensaje = function (un_mensaje, vecino_emisor) {
 			return;
 		}
 	}
-    //si no, envío a todos los vecinos menos al que me me mandó el mensaje
+    //envío a todos los vecinos menos al que me me mandó el mensaje
     _.forEach(this.datosVecinos, function (datos_de_un_vecino) {
         if(vecino_emisor === datos_de_un_vecino.vecino) return;
         if(datos_de_un_vecino.filtroRecibido.eval(un_mensaje)){ 
@@ -98,11 +98,19 @@ NodoRouter.prototype.recibirMensaje = function (un_mensaje, vecino_emisor) {
         }
     });
 	
-	//ejecuto el callback que corresponda
+	//ejecuto los callbacks que correspondan
 	_.forEach(this.pedidos, function (un_pedido) {
         if(un_pedido.filtro.eval(un_mensaje)){ 
-            setTimeout(function(){              
-                un_pedido.callback(un_mensaje); 
+            setTimeout(function(){    
+				if(un_mensaje.idRequest) 
+					un_pedido.callback(un_mensaje, {
+						send: function(respuesta){
+							respuesta.tipoDeMensaje = "Vortex.respuesta";
+							respuesta.responseTo = un_mensaje.idRequest;
+							_this.send(respuesta);
+						}
+					});
+				else un_pedido.callback(un_mensaje); 
             },0);
         }
     });

@@ -6,6 +6,7 @@ Project URL: https://sourceforge.net/p/vortexnet
 
 if(typeof(require) != "undefined"){
     var NodoNulo = require("./NodoNulo").clase;
+	var io = require('socket.io');
 }
 
 var NodoConectorSocket = function(opt){
@@ -21,6 +22,7 @@ var NodoConectorSocket = function(opt){
     });
     this.socket.on('disconnect', function () {
         _this.desconectarDe(_this.vecino);
+		
     });
     if(this.verbose) console.log('socket ' + this.id + ' conectado');
 };
@@ -32,7 +34,7 @@ NodoConectorSocket.prototype.conectarCon = function(un_vecino){
 };
 
 NodoConectorSocket.prototype.desconectarDe = function(un_nodo){
-    this.receptor = new NodoNulo();
+    this.vecino = new NodoNulo();
     this.desconectarDe = function(){};
     
     un_nodo.desconectarDe(this);

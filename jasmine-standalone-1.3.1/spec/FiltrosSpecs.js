@@ -197,4 +197,12 @@ describe("Filtros", function() {
               
         expect(un_filtro_or.simplificar().equals(new FiltroOR([new FiltroXEjemplo({p1:1}), new FiltroXEjemplo({p3:3})]))).toBeTruthy();
     });
+	
+	it("27 - Al simplificar una OR que contiene tres false deberia quedarme solo un filtro false", function() {
+        var un_filtro_or = new FiltroOR([new FiltroFalse(), 
+                                         new FiltroFalse(),
+                                         new FiltroFalse()]);
+              
+        expect(un_filtro_or.simplificar().equals(new FiltroFalse())).toBeTruthy();
+    });
 });
